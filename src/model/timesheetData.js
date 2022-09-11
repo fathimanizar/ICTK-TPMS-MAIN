@@ -24,7 +24,9 @@ var NewCredentialSchema = new Schema({
     students: Number,
     user_id: String,
     status: String,
-    paymentAmt:Number
+    paymentAmt:Number,
+    calculatedAmt:Number,
+    trainerType:String
    
 });
 

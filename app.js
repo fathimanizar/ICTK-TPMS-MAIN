@@ -74,7 +74,7 @@ app.post('/api/signup',function(req,res){
 // ................................................LOGIN..........................................
 app.post('/api/login', (req, res) => {
   var userData = req.body
-  console.log(userData);
+  
   var flag=false;
   var userDetails='';
   
@@ -275,7 +275,11 @@ app.get('/api/getProgrammeConfig/:id', (req, res) => {
     app.post('/api/insertTimesheet',function(req,res){
       
 
-      var timesheetData= {       
+
+     PaymentConfigData.find()     
+      .then(function (config) {
+
+        var timesheetData= {       
           date : req.body.timesheet.date,
           program_name: req.body.timesheet.program_name,
           training_mode: req.body.timesheet.training_mode,
@@ -284,12 +288,22 @@ app.get('/api/getProgrammeConfig/:id', (req, res) => {
           students: req.body.timesheet.students,
           user_id: req.body.timesheet.user_id,
           status: 'pending',
-          paymentAmt:0
-         
+          paymentAmt:req.body.timesheet.calculatedAmt.paymentAmt,
+          calculatedAmt:req.body.timesheet.paymentAmt,
+          trainerType:req.body.timesheet.trainerType     
      } 
-  
-     var t_sheet = new TimesheetData(timesheetData);
-     t_sheet.save();
+     console.log("config",config);
+          for(let i=0;i<config.length;i++){    
+              if((timesheetData.training_mode == config[i].trainingMode) && (timesheetData.activity == config[i].isExtraActivity) && (timesheetData.trainerType == config[i].trainerType) ){
+                timesheetData.paymentAmt = config[i].paymentAmt;
+                console.log("in",timesheetData.paymentAmt);
+              }
+          }
+          console.log("amt",timesheetData.paymentAmt);
+          var t_sheet = new TimesheetData(timesheetData);
+          t_sheet.save();          
+      });  
+ 
   });
 
   // ....................................VIEW TIMESHEET LIST.............................................
@@ -352,13 +366,17 @@ app.put('/api/updateTimesheet',(req,res)=>{
   training_mode = req.body.training_mode,
   activity = req.body.activity,
   hours = req.body.hours,
+  paymentAmt=req.body.paymentAmt,
+  calculatedAmt=req.body.calculatedAmt,
+  trainerType=req.body.trainerType
+
 
   TimesheetData.findByIdAndUpdate({"_id":id},
                              {$set:{"date": date,
                              "program_name": program_name,
                              "training_mode": training_mode,
                              "activity": activity,
-                             "hours": hours
+                             "hours": hours,
                             }})
 .then(function(){
     res.send();
@@ -382,9 +400,9 @@ app.delete('/api/deleteTimesheet/:id',(req,res)=>{
 //TO GET TRAINER LIST
 
 app.get('/api/trainerList',function(req,res){
-  console.log("traner list in");
+  
     
-  UserData.find({role:'trainer'})
+  UserData.find({role:'trainer'}).sort("firstname")
               .then(function(userdata){
                   res.send(userdata);         
                 });
@@ -394,16 +412,66 @@ app.get('/api/trainerList',function(req,res){
 //.............to get timesheets of selected trainer.............
 
 app.get('/api/getUserTimesheets/:user_id',function(req,res){
-   console.log("User id from frontend", req.params.user_id);
+   
   let userid=req.params.user_id;
 
   TimesheetData.find({user_id:userid,status:'pending'})
               .then(function(timesheetdata){
-                console.log("timesheet data by userid",timesheetdata);
                   res.send(timesheetdata);
                  
               });
 });
+
+app.get('/api/getCalcUserTimesheets/:user_id',function(req,res){
+   
+  let userid=req.params.user_id;
+
+  TimesheetData.find({user_id:userid,status:'Calculated'})
+              .then(function(timesheetdata){
+                  res.send(timesheetdata);
+                 
+              });
+});
+
+
+
+app.put('/api/calculatePayment',(req,res)=>{
+  userid=req.body.user_id,
+  TimesheetData.updateMany({"user_id":userid},
+                             {$set:{
+                             "status":"Calculated",
+                            }})
+
+  
+.then(function(){
+    res.send();
+})
+  
+})
+
+// ..................Get invoice user...............
+
+app.get('/api/getInvoiceUSer/:id', (req, res) => {
+  console.log(req.params.id)
+  const id = req.params.id;
+  UserData.findOne({ "_id": id })
+      .then((invoUdata) => {
+          res.send(invoUdata);
+          console.log(invoUdata);
+      });
+})
+
+// .........................Get invoice item................
+
+app.get('/api/getInvoice/:id', (req, res) => {
+  console.log(req.params.id)
+  const id = req.params.id;
+  TimesheetData.find({ user_id:id,status:'Calculated'})
+      .then((invoItemdata) => {
+          res.send(invoItemdata);
+          console.log("eee", invoItemdata);
+      });
+    });  
 
 //.....................Hosting related.......................
 
